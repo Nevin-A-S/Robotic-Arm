@@ -32,7 +32,7 @@ interface WebSocketMessage {
   filename?: string;
 }
 
-const WEBSOCKET_URL = "ws://192.168.0.140:8000/ws";
+const WEBSOCKET_URL = "ws://192.168.0.143:8000/ws";
 const SERVO_COUNT = 6;
 const MIN_ANGLE = 0;
 const MAX_ANGLE = 180;

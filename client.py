@@ -8,7 +8,7 @@ async def send_message():
         message = {
             "type": "SET_SERVO",
             "index": 1,
-            "angle": 150
+            "angle": 90
         }
         await websocket.send(json.dumps(message))
         response = await websocket.recv()
