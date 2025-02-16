@@ -24,12 +24,14 @@ interface WebSocketMessage {
     | "GET_POSITIONS"
     | "SAVE_POSITIONS"
     | "POSITIONS_UPDATE"
-    | "SAVE_COMPLETE";
+    | "SAVE_COMPLETE"
+    | "RESET_POSITIONS";
   positions?: number[];
   index?: number;
   angle?: number;
   name?: string;
   filename?: string;
+  success?: boolean;
 }
 
 const WEBSOCKET_URL = "ws://192.168.0.143:8000/ws";
@@ -83,9 +85,16 @@ export default function App() {
                 setPositions(data.positions);
                 setIsLoading(false);
               }
+              if (data.success === false) {
+                Alert.alert("Error", "Failed to update servo position");
+              }
               break;
             case "SAVE_COMPLETE":
-              Alert.alert("Success", `Positions saved to ${data.filename}`);
+              if (data.filename) {
+                Alert.alert("Success", `Positions saved to ${data.filename}`);
+              } else {
+                Alert.alert("Error", "Failed to save positions");
+              }
               setIsLoading(false);
               break;
           }
@@ -110,6 +119,28 @@ export default function App() {
           type: "SET_SERVO",
           index,
           angle: Math.round(value),
+        })
+      );
+    }
+  }, []);
+
+  const resetPositions = useCallback(() => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      setIsLoading(true);
+      ws.current.send(
+        JSON.stringify({
+          type: "RESET_POSITIONS",
+        })
+      );
+    }
+  }, []);
+
+  const getPositions = useCallback(() => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      setIsLoading(true);
+      ws.current.send(
+        JSON.stringify({
+          type: "GET_POSITIONS",
         })
       );
     }
@@ -159,7 +190,7 @@ export default function App() {
       );
       setSaveName("");
     }
-  }, [ws, saveName]);
+  }, [saveName]);
 
   const renderServoControl = useCallback(
     (index: number) => (
@@ -211,12 +242,23 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Servo Controller</Text>
-        <View
-          style={[
-            styles.statusIndicator,
-            { backgroundColor: connected ? "#4CAF50" : "#F44336" },
-          ]}
-        />
+        <View style={styles.headerRight}>
+          <TouchableOpacity
+            style={styles.getPositionsButton}
+            onPress={getPositions}
+          >
+            <Text style={styles.buttonText}>Get Positions</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.resetButton} onPress={resetPositions}>
+            <Text style={styles.resetButtonText}>Reset All</Text>
+          </TouchableOpacity>
+          <View
+            style={[
+              styles.statusIndicator,
+              { backgroundColor: connected ? "#4CAF50" : "#F44336" },
+            ]}
+          />
+        </View>
       </View>
 
       {isLoading && (
@@ -273,6 +315,29 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+  },
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  getPositionsButton: {
+    backgroundColor: "#2196F3",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  resetButton: {
+    backgroundColor: "#FF5722",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  resetButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "500",
   },
   title: {
     fontSize: 20,
@@ -342,7 +407,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "white",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "500",
   },
   saveSection: {
