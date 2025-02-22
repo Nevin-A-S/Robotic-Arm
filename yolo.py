@@ -8,7 +8,8 @@ model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
 # model.conf = 0.4
 
 # 2. Define the URL of your ESP32-CAM MJPEG stream.
-stream_url = 'http://192.168.0.148:81/stream'  # Replace <ESP32_IP> with your camera's IP address
+
+stream_url = 'http://192.168.0.176:81/stream'  # Replace <ESP32_IP> with your camera's IP address
 
 # 3. Open the video stream.
 cap = cv2.VideoCapture(stream_url)
