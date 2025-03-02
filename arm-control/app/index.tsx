@@ -25,13 +25,16 @@ interface WebSocketMessage {
     | "SAVE_POSITIONS"
     | "POSITIONS_UPDATE"
     | "SAVE_COMPLETE"
-    | "RESET_POSITIONS";
+    | "RESET_POSITIONS"
+    | "GET_DISTANCE"
+    | "DISTANCE_UPDATE";
   positions?: number[];
   index?: number;
   angle?: number;
   name?: string;
   filename?: string;
   success?: boolean;
+  distance?: number;
 }
 
 const WEBSOCKET_URL = "ws://192.168.0.143:8000/ws";
@@ -45,6 +48,7 @@ export default function App() {
   const [positions, setPositions] = useState<number[]>(
     Array(SERVO_COUNT).fill(90)
   );
+  const [distance, setDistance] = useState<number>(0);
   const [manualValues, setManualValues] = useState<string[]>(
     Array(SERVO_COUNT).fill("")
   );
@@ -67,6 +71,7 @@ export default function App() {
       websocket.onopen = () => {
         setConnected(true);
         websocket.send(JSON.stringify({ type: "GET_POSITIONS" }));
+        websocket.send(JSON.stringify({ type: "GET_DISTANCE" }));
       };
 
       websocket.onclose = () => {
@@ -85,8 +90,16 @@ export default function App() {
                 setPositions(data.positions);
                 setIsLoading(false);
               }
+              if (data.distance !== undefined) {
+                setDistance(data.distance);
+              }
               if (data.success === false) {
                 Alert.alert("Error", "Failed to update servo position");
+              }
+              break;
+            case "DISTANCE_UPDATE":
+              if (data.distance !== undefined) {
+                setDistance(data.distance);
               }
               break;
             case "SAVE_COMPLETE":
@@ -141,6 +154,17 @@ export default function App() {
       ws.current.send(
         JSON.stringify({
           type: "GET_POSITIONS",
+        })
+      );
+    }
+  }, []);
+
+  const getDistance = useCallback(() => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+      setIsLoading(true);
+      ws.current.send(
+        JSON.stringify({
+          type: "GET_DISTANCE",
         })
       );
     }
@@ -241,7 +265,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Servo</Text>
+        <Text style={styles.title}>Servo Controller</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.getPositionsButton}
@@ -266,6 +290,16 @@ export default function App() {
           <ActivityIndicator size="large" color="#2196F3" />
         </View>
       )}
+
+      <View style={styles.distanceContainer}>
+        <View style={styles.distanceCard}>
+          <Text style={styles.distanceLabel}>Distance Sensor:</Text>
+          <Text style={styles.distanceValue}>{distance.toFixed(2)} cm</Text>
+          <TouchableOpacity style={styles.refreshButton} onPress={getDistance}>
+            <Text style={styles.buttonText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <ScrollView style={styles.content}>
         {Array.from({ length: SERVO_COUNT }).map((_, index) =>
@@ -347,6 +381,41 @@ const styles = StyleSheet.create({
   statusIndicator: {
     width: 12,
     height: 12,
+    borderRadius: 6,
+  },
+  distanceContainer: {
+    padding: 16,
+    paddingBottom: 8,
+  },
+  distanceCard: {
+    backgroundColor: "#E1F5FE",
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  distanceLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0277BD",
+  },
+  distanceValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#01579B",
+    flex: 1,
+    textAlign: "center",
+  },
+  refreshButton: {
+    backgroundColor: "#0288D1",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 6,
   },
   content: {
