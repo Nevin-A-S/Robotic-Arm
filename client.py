@@ -8,6 +8,7 @@ import uvicorn
 import logging
 from typing import List
 import os
+import re
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -49,9 +50,10 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-class ServoController:
+class RobotController:
     def __init__(self):
         self.positions = [90] * 6
+        self.distance = 0.0
         
     async def set_servo(self, index: int, angle: int) -> bool:
         if not ser:
@@ -78,6 +80,16 @@ class ServoController:
                     position_response = ser.readline().decode().strip()
                     logger.info(f"Position response: {position_response}")
                     
+                    # Check if it's a distance reading
+                    if position_response.startswith("DIST:"):
+                        try:
+                            dist_value = float(position_response[5:])
+                            self.distance = dist_value
+                            # Continue waiting for position update
+                            continue
+                        except ValueError:
+                            logger.error(f"Invalid distance data: {position_response}")
+                    
                     try:
                         # Update positions from Arduino's response
                         new_positions = [int(x) for x in position_response.split(',')]
@@ -88,7 +100,7 @@ class ServoController:
                                 break
                     except ValueError:
                         logger.error(f"Invalid position data: {position_response}")
-                        break
+                        # Don't break, try to read next line
                 
                 return True
             else:
@@ -129,6 +141,37 @@ class ServoController:
         except Exception as e:
             logger.error(f"Error getting positions: {e}")
             return self.positions
+    
+    async def get_distance(self) -> float:
+        """Request and get the current distance reading from the sensor"""
+        if not ser:
+            logger.error("No serial connection to Arduino")
+            return self.distance
+            
+        try:
+            # Clear any pending data
+            ser.reset_input_buffer()
+            
+            # Send GETDIST command
+            ser.write(b"GETDIST\n")
+            ser.flush()
+            
+            # Wait for response
+            response = ser.readline().decode().strip()
+            logger.info(f"Got distance: {response}")
+            
+            # Expected format: "DIST:123.45"
+            if response.startswith("DIST:"):
+                try:
+                    self.distance = float(response[5:])
+                except ValueError:
+                    logger.error(f"Invalid distance data: {response}")
+            
+            return self.distance
+            
+        except Exception as e:
+            logger.error(f"Error getting distance: {e}")
+            return self.distance
 
     async def reset_positions(self) -> bool:
         """Reset all servos to 90 degrees"""
@@ -149,8 +192,8 @@ class ServoController:
             
             with open(filepath, 'w', newline='') as csvfile:
                 writer = csv.writer(csvfile)
-                writer.writerow(['Name', 'Timestamp'] + [f'Servo_{i+1}' for i in range(6)])
-                writer.writerow([name, timestamp] + self.positions)
+                writer.writerow(['Name', 'Timestamp', 'Distance_cm'] + [f'Servo_{i+1}' for i in range(6)])
+                writer.writerow([name, timestamp, self.distance] + self.positions)
                 
             logger.info(f"Saved positions to {filename}")
             return filename
@@ -158,8 +201,41 @@ class ServoController:
         except Exception as e:
             logger.error(f"Error saving positions: {e}")
             return ""
+
+async def monitor_distance():
+    """Background task to monitor distance readings and broadcast updates"""
+    while True:
+        if ser:
+            try:
+                # Read lines from the serial port
+                if ser.in_waiting > 0:
+                    line = ser.readline().decode().strip()
+                    
+                    # Check if it's a distance reading
+                    if line.startswith("DIST:"):
+                        try:
+                            dist_value = float(line[5:])
+                            controller.distance = dist_value
+                            
+                            # Broadcast the distance update
+                            await manager.broadcast({
+                                'type': 'DISTANCE_UPDATE',
+                                'distance': dist_value
+                            })
+                        except ValueError:
+                            logger.error(f"Invalid distance data: {line}")
+            except Exception as e:
+                logger.error(f"Error reading sensor data: {e}")
         
-controller = ServoController()
+        # Short delay to avoid hogging CPU
+        await asyncio.sleep(0.1)
+        
+controller = RobotController()
+
+@app.on_event("startup")
+async def startup_event():
+    # Start the background task to monitor sensor readings
+    asyncio.create_task(monitor_distance())
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -178,6 +254,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.broadcast({
                         'type': 'POSITIONS_UPDATE',
                         'positions': positions,
+                        'distance': controller.distance,
                         'success': success
                     })
                     
@@ -185,7 +262,15 @@ async def websocket_endpoint(websocket: WebSocket):
                     positions = await controller.get_positions()
                     await websocket.send_json({
                         'type': 'POSITIONS_UPDATE',
-                        'positions': positions
+                        'positions': positions,
+                        'distance': controller.distance
+                    })
+                
+                elif data['type'] == 'GET_DISTANCE':
+                    distance = await controller.get_distance()
+                    await websocket.send_json({
+                        'type': 'DISTANCE_UPDATE',
+                        'distance': distance
                     })
 
                 elif data['type'] == 'RESET_POSITIONS':
@@ -194,6 +279,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     await manager.broadcast({
                         'type': 'POSITIONS_UPDATE',
                         'positions': positions,
+                        'distance': controller.distance,
                         'success': success
                     })
                     
