@@ -241,7 +241,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Servo Controller</Text>
+        <Text style={styles.title}>Servo</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.getPositionsButton}
