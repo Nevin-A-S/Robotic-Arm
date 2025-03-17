@@ -39,7 +39,7 @@ class DetectionDataset(Dataset):
         self.imgs.sort()
         
         # Create class mapping (adjust these classes to match your dataset)
-        self.class_names = ["background", "person", "car", "bicycle", "dog", "cat"]
+        self.class_names = ["background", "crack"]
         self.class_to_idx = {cls_name: i for i, cls_name in enumerate(self.class_names)}
         
     def __len__(self):
@@ -281,7 +281,7 @@ class OptimizedDetector:
         """
         self.device = device
         self.confidence_threshold = confidence_threshold
-        self.class_names = class_names or ["background", "person", "car", "bicycle", "dog", "cat"]
+        self.class_names = class_names or ["background", "crack"]
         
         # Load the quantized model
         self.model = torch.jit.load(model_path)
@@ -476,17 +476,17 @@ def optimize_for_raspberry_pi(model):
 
 def main():
     # Define paths
-    train_img_dir = "path/to/train/images"
-    train_annot_dir = "path/to/train/annotations"
-    val_img_dir = "path/to/val/images"
-    val_annot_dir = "path/to/val/annotations"
+    train_img_dir = "datasets/images/train"
+    train_annot_dir = "path/to/converted/train/xml"  # Where you saved the converted XML files
+    val_img_dir = "datasets/images/val"
+    val_annot_dir = "path/to/converted/val/xml"  # Where you saved the converted XML files
     
     # Set device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Using device: {device}")
     
     # Define class names (modify according to your dataset)
-    class_names = ["background", "person", "car", "bicycle", "dog", "cat"]
+    class_names = ["background", "crack"]
     num_classes = len(class_names)
     
     # Create datasets
