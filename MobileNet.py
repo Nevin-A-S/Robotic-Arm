@@ -885,7 +885,7 @@ def raspi_deployment(headless=False, source_type="camera", source_path=None):
         source_path: Path to the image or video file if source_type is "image" or "video"
     """
     # Check if OpenCV has GUI support
-    has_gui = True
+    has_gui = False
     try:
         # Try to create a window to check if GUI is supported
         cv2.namedWindow("Test", cv2.WINDOW_NORMAL)
@@ -894,7 +894,7 @@ def raspi_deployment(headless=False, source_type="camera", source_path=None):
     except Exception as e:
         print(f"OpenCV GUI not available: {e}")
         print("Running in headless mode (no display)")
-        headless = False
+        headless = True
     
     # Set up the device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -916,7 +916,6 @@ def raspi_deployment(headless=False, source_type="camera", source_path=None):
     
     model = model.to(device)
     model.eval()
-    print("Has GUI: ", has_gui)
     print("Model ready")
     
     # Create transform for preprocessing

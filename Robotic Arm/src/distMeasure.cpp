@@ -1,6 +1,6 @@
 // Define the pins for the ultrasonic sensor
-const int trigPin = 9;
-const int echoPin = 10;
+const int trigPin = 7;
+const int echoPin = 8;
 
 void setup() {
   // Start the serial communication at 9600 baud
