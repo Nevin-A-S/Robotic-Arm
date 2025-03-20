@@ -4,6 +4,28 @@ import glob
 import serial
 import numpy as np
 
+# Python3 program for the above approach
+from math import atan
+
+# Function to find the
+# angle between two lines
+def findAngle(M1, M2):
+	PI = 3.14159265
+	
+	# Store the tan value of the angle
+	angle = abs((M2 - M1) / (1 + M1 * M2))
+
+	# Calculate tan inverse of the angle
+	ret = atan(angle)
+
+	# Convert the angle from
+	# radian to degree
+	val = (ret * 180) / PI
+
+	# Print the result
+	return (round(val, 4))
+
+
 def calibrate_camera():
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
@@ -70,18 +92,23 @@ def calibrate_camera():
     print("Camera calibrated successfully.")
     return mtx, dist
 
+def setServoAngle(ser, index, angle):
+    command = f"SET,{index},{angle}\n"
+    ser.write(command.encode())
+
 def main():
     #Starting Serial Connection with Arduino at COM3 at 9600 baud rate
     ser = serial.Serial('COM3', 9600)
-    ser.flush() #Clearing the serial buffer
-    ser.write(bytearray("SET,3,130",'ascii')) # Set Base Motor to forward position
+    ser.flush() #Clearing the serial buffer # Set Base Motor to forward position
     mtx, dist = calibrate_camera()
+    index = 3
+    angle = 140
+    command = f"SET,{index},{angle}\n"
+    ser.write(command.encode())
+    ser.flush()
 
-    # Send character 'S' to start the program
-    ser.write(bytearray('S','ascii'))
-
-    # cap = cv2.VideoCapture("http://192.168.0.176:81/stream")
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture("http://192.168.0.176:81/stream")
+    # cap = cv2.VideoCapture(0)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1024)
     if not cap.isOpened():
@@ -95,8 +122,9 @@ def main():
     font = cv2.FONT_HERSHEY_SIMPLEX
     
     while True:
-        bs = ser.readline()
-        print(bs)
+        if ser.in_waiting > 0:
+            serial_data = ser.readline().decode('utf-8').strip()
+            print("Received from Arduino:", serial_data)
         ret, frame = cap.read()
         
         if not ret:
@@ -120,7 +148,27 @@ def main():
                 center = (top_left + top_right) // 2
 
                 cv2.line(frame, (center[0],0), (center[0],1280), (0, 255, 0), 2)
+
+                #Slope of deviation Line
+
+                slope = (center[1] - 1024) / (center[0] - 1280//2)
+
+                print(findAngle(slope, 1))
+
                 
+                #convert coordinat to servo degree
+                # servoX = np.interp(center[0], [0, 1280], [0, 180])
+
+                cv2.line(frame, tuple(center), (1280//2,1024), (0, 0, 255), 2)
+                if center[0] > 1280//2:
+                    angle -= 1 
+                    setServoAngle(ser, 3, angle)
+                elif center[0] < 1280//2:
+                    angle += 1
+                    setServoAngle(ser, 3, angle)
+                elif center[0] == 1280//2:
+                    print("Centered")
+
                 if ids is not None:
                     marker_id = ids[i][0]
                     cv2.putText(frame, f"ID: {marker_id}", 
@@ -153,6 +201,7 @@ def main():
         cv2.imshow('ArUco Marker Tracking', frame)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
+            ser.close()
             break
     
     cap.release()
