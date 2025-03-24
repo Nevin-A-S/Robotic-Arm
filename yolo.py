@@ -7,7 +7,7 @@ model.conf = 0.4
 
 # 2. Open the video stream
 stream_url = 'http://192.168.0.176:81/stream'
-cap = cv2.VideoCapture(stream_url)
+cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     print("Error: Unable to open video stream.")
     exit()

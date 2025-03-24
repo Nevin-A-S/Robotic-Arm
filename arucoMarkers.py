@@ -98,14 +98,14 @@ def setServoAngle(ser, index, angle):
 
 def main():
     #Starting Serial Connection with Arduino at COM3 at 9600 baud rate
-    ser = serial.Serial('COM3', 9600)
-    ser.flush() #Clearing the serial buffer # Set Base Motor to forward position
+    # ser = serial.Serial('COM3', 9600)
+    # ser.flush() #Clearing the serial buffer # Set Base Motor to forward position
     mtx, dist = calibrate_camera()
     index = 3
     angle = 140
     command = f"SET,{index},{angle}\n"
-    ser.write(command.encode())
-    ser.flush()
+    # ser.write(command.encode())
+    # ser.flush()
 
     cap = cv2.VideoCapture("http://192.168.0.176:81/stream")
     # cap = cv2.VideoCapture(0)
@@ -122,9 +122,9 @@ def main():
     font = cv2.FONT_HERSHEY_SIMPLEX
     
     while True:
-        if ser.in_waiting > 0:
-            serial_data = ser.readline().decode('utf-8').strip()
-            print("Received from Arduino:", serial_data)
+        # if ser.in_waiting > 0:
+        #     serial_data = ser.readline().decode('utf-8').strip()
+        #     print("Received from Arduino:", serial_data)
         ret, frame = cap.read()
         
         if not ret:
@@ -160,14 +160,14 @@ def main():
                 # servoX = np.interp(center[0], [0, 1280], [0, 180])
 
                 cv2.line(frame, tuple(center), (1280//2,1024), (0, 0, 255), 2)
-                if center[0] > 1280//2:
-                    angle -= 1 
-                    setServoAngle(ser, 3, angle)
-                elif center[0] < 1280//2:
-                    angle += 1
-                    setServoAngle(ser, 3, angle)
-                elif center[0] == 1280//2:
-                    print("Centered")
+                # if center[0] > 1280//2:
+                #     angle -= 1 
+                #     setServoAngle(ser, 3, angle)
+                # elif center[0] < 1280//2:
+                #     angle += 1
+                #     setServoAngle(ser, 3, angle)
+                # elif center[0] == 1280//2:
+                #     print("Centered")
 
                 if ids is not None:
                     marker_id = ids[i][0]
@@ -201,7 +201,7 @@ def main():
         cv2.imshow('ArUco Marker Tracking', frame)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
-            ser.close()
+            # ser.close()
             break
     
     cap.release()
